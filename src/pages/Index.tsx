@@ -3,7 +3,7 @@ import { Helmet } from "react-helmet-async";
 import { HeroSection } from "@/components/HeroSection";
 import { LearningRoadmap } from "@/components/LearningRoadmap";
 import { LearningPath } from "@/types/learning";
-import { generateMockLearningPath } from "@/utils/mockData";
+import { generateLearningPath } from "@/services/aiService";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -14,17 +14,24 @@ const Index = () => {
   const handleGenerate = async (topic: string) => {
     setIsLoading(true);
     
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    const path = generateMockLearningPath(topic);
-    setLearningPath(path);
-    setIsLoading(false);
-    
-    toast({
-      title: "Roadmap Generated! 🚀",
-      description: `Your personalized learning path for "${topic}" is ready.`,
-    });
+    try {
+      const path = await generateLearningPath(topic);
+      setLearningPath(path);
+      
+      toast({
+        title: "Roadmap Generated! 🚀",
+        description: `Your personalized learning path for "${topic}" is ready.`,
+      });
+    } catch (error) {
+      console.error("Error generating roadmap:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate roadmap. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleToggleItem = (phaseId: string, itemId: string) => {
