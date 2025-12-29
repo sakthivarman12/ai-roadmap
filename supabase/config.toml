@@ -1,0 +1,4 @@
+project_id = "paqkukopejhsaouisuhe"
+
+[functions.generate-roadmap]
+verify_jwt = false
