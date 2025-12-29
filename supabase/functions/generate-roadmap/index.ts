@@ -7,6 +7,11 @@ const corsHeaders = {
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
 
+// Validation constants
+const MIN_TOPIC_LENGTH = 2;
+const MAX_TOPIC_LENGTH = 200;
+const VALID_TOPIC_PATTERN = /^[a-zA-Z0-9\s\-\.,'&()]+$/;
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -14,17 +19,56 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error("No authorization header provided");
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { topic } = await req.json();
     
+    // Validate topic exists and is string
     if (!topic || typeof topic !== 'string') {
       console.error("Invalid topic provided:", topic);
       return new Response(
-        JSON.stringify({ error: "Topic is required" }),
+        JSON.stringify({ error: "Topic is required and must be a string" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Generating learning path for topic:", topic);
+    // Trim and validate length
+    const trimmedTopic = topic.trim();
+    
+    if (trimmedTopic.length < MIN_TOPIC_LENGTH) {
+      console.error("Topic too short:", trimmedTopic.length);
+      return new Response(
+        JSON.stringify({ error: `Topic must be at least ${MIN_TOPIC_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (trimmedTopic.length > MAX_TOPIC_LENGTH) {
+      console.error("Topic too long:", trimmedTopic.length);
+      return new Response(
+        JSON.stringify({ error: `Topic must be less than ${MAX_TOPIC_LENGTH} characters` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate allowed characters (alphanumeric, spaces, common punctuation)
+    if (!VALID_TOPIC_PATTERN.test(trimmedTopic)) {
+      console.error("Topic contains invalid characters:", trimmedTopic);
+      return new Response(
+        JSON.stringify({ error: "Topic contains invalid characters. Only letters, numbers, spaces, and common punctuation are allowed." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Generating learning path for topic:", trimmedTopic);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -60,7 +104,7 @@ Guidelines:
 - Be encouraging and realistic about timelines
 - ONLY respond with valid JSON, no additional text`;
 
-    const userPrompt = `Create a detailed learning roadmap for: "${topic}"
+    const userPrompt = `Create a detailed learning roadmap for: "${trimmedTopic}"
 
 I want to learn this from absolute scratch. Please create a structured path with clear phases and actionable checklist items.`;
 
@@ -152,7 +196,7 @@ I want to learn this from absolute scratch. Please create a structured path with
     const totalItems = phases.reduce((sum: number, phase: any) => sum + phase.items.length, 0);
 
     const learningPath = {
-      topic,
+      topic: trimmedTopic,
       phases,
       totalItems,
       completedItems: 0,
